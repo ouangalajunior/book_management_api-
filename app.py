@@ -1,60 +1,103 @@
 from flask import Flask, request
 from db import libraries, books
 
+import uuid
+
 app = Flask(__name__)
 
 
-libraries = [
-    {
-        "name": "My Bibliotheque",
-        "books": [
-            {
-                "title": "Mon book",
-                "author": "Osee Junior",
-                "year": 1999
-            }
-        ]
-    }
-]
 
 
-
+#Get libraries
 @app.get("/library")
 def get_libraries():
-    return {"libraries": libraries}
+    return {"libraries": list(libraries.values())}
 
+#Create library
 @app.post("/library")
 def create_library():
-    request_data = request.get_json()
-    new_library = {"name": request_data["name"], "books":[]}
-    libraries.append(new_library)
-    return new_library, 201
+    library_data = request.get_json()
+    library_id = uuid.uuid4().hex
+    library = {**library_data, "id": library_id}
+    libraries[library_id] = library
+    
+    return library, 201
 
+#Get a library based on library id
+@app.get("/library/<string:library_id>")
+def get_library(library_id):
+    try:
+        return libraries[library_id]
+    except KeyError:
+        return {"message": "Library not found"}, 404
+
+#Delete a library based on library id    
+@app.delete("/library/<string:library_id>")
+def delete_library(library_id):
+    try:
+        del libraries[library_id]
+        return {"message": "Library deleted"}
+    except KeyError:
+        return {"message": "Library not found"}, 404
+
+#Update library
+@app.put("/library/<string:library_id>")
+def update_library(library_id):
+    library_data = request.get_json()
+    if "name" not in library_data :
+        return {"message": "Bad request. Ensure 'name' is included in the JSON payload"}, 400
+    try:
+        library = libraries[library_id]
+        library |= library_data
+        return library
+    except KeyError:
+        return {"message": "Library not found"}, 404
 
 #Create book
-@app.post("/library/<string:name>/book")
-def create_book(title):
-    request_data = request.get_json()
-    for library in libraries:
-        if library["name"] == name:
-            new_book = {"title": request_data["title"], "author": request_data["author"], "year": request_data["year"]}
-            store["books"].append(new_book)
-            return new_book,201
-    return {"message": "Library not found"}, 404
+@app.post("/book")
+def create_book():
+    book_data = request.get_json()
+    if book_data["library_id"] not in libraries:
+        return {"message": "Library not found"}, 404
+    book_id = uuid.uuid4().hex
+    book = {**book_data, "id": book_id}
+    books[book_id] = book
+    return book, 201
 
+#Get a list of books
+@app.get("/book")
+def get_books():
+    return {"books": list(books.values())}
 
-@app.get("/library/<string:name>")
-def get_library(name):
-    for library in libraries:
-        if library["name"] == name:
-            return library
-    return {"message": "Library not found"}, 404
+#Delete a book
+@app.delete("/book/<string:book_id>")
+def delete_book(book_id):
+    try:
+        del books[book_id]
+        return {"message": "Book deleted"}
+    except KeyError:
+        return {"message": "Book not found"}, 404
 
+#Get a book
+@app.get("/book/<string:book_id>")
+def get_book(book_id):
+    try:
+        return books[book_id]
+    except KeyError:
+        return {"message": "Book not found"}, 404
 
-@app.get("/library/<string:name>/book")
-def get_book_in_library(name):
-    for library in libraries:
-        if library["name"] == name:
-            return {"books": library["books"]}
-    return {"message": "Library not found"}, 404
+#Update book
+@app.put("/book/<string:book_id>")
+def update_book(book_id):
+    book_data = request.get_json()
+    if "title" not in book_data or "author" not in book_data or "year" not in book_data:
+        return {"message": "Bad request. Ensure 'title', 'author', and 'year' are included in the JSON payload"}, 400
+    try:
+        book = books[book_id]
+        book |= book_data
+        return book
+    except KeyError:
+        return {"message": "Book not found"}, 404
+
+    
     
